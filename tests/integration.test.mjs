@@ -70,3 +70,31 @@ test('CLI structured JSON, metadata and blocking exit code',()=>{
   const s=spawnSync(process.execPath,['cli.mjs','--block-any','--metadata'],{input:'demo@example.test',encoding:'utf8'});
   assert.equal(s.status,2);assert.equal(JSON.parse(s.stdout).blocked,true);assert.ok(!s.stdout.includes('example.test'));
 });
+
+test('four worker slots are bounded and reusable',async()=>{
+  const pending=Array.from({length:4},()=>scan('demo@example.test'));
+  await assert.rejects(scan('another@example.test'),{code:'BUSY'});
+  const results=await Promise.all(pending);assert.equal(results.length,4);
+  assert.ok(results.every(r=>r.text==='[EMAIL_1]'));
+  assert.equal((await scan('Clean content')).text,'Clean content');
+});
+test('provider deadline signals cancellation',async()=>{
+  let signal,events=[];
+  const client=createGuardedClient({review:()=>true,audit:e=>events.push(e),sendTimeoutMs:20,send:(_text,s)=>{signal=s;return new Promise(()=>{});}});
+  await assert.rejects(client.submit('demo@example.test'),{code:'PROVIDER_FAILED'});
+  assert.equal(signal.aborted,true);assert.equal(events[0].outcome,'approved');
+});
+test('audit timeout blocks egress',async()=>{
+  let sent=false,signal;
+  const client=createGuardedClient({review:()=>true,auditTimeoutMs:20,audit:(_e,s)=>{signal=s;return new Promise(()=>{});},send:()=>{sent=true;}});
+  await assert.rejects(client.submit('demo@example.test'),{code:'AUDIT_FAILED'});
+  assert.equal(signal.aborted,true);assert.equal(sent,false);
+});
+test('HTTP allowlist serves pipeline module, rejects traversal and secret files',async()=>{
+  const server=createApp();server.listen(0,'127.0.0.1');await once(server,'listening');
+  const base='http://127.0.0.1:'+server.address().port;
+  try{
+    assert.equal((await fetch(base+'/pipeline.mjs')).status,200);
+    for(const path of ['/.git/config','/tests/integration.test.mjs','/guard.mjs','/%2e%2e%2fREADME.md'])assert.equal((await fetch(base+path)).status,404);
+  }finally{server.close();server.closeAllConnections();}
+});

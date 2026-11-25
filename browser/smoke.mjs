@@ -94,7 +94,33 @@ try{
   await sleep(500);
   assert.equal(await js("document.querySelector('#output').value"),'');
   assert.equal(await js("document.querySelector('#copy').disabled"),true);
-  console.log('Browser smoke checks passed: worker, CSP, review, stale output, mask and text rendering.');
+  // Import a synthetic local JSON file without touching the network.
+  await js("(()=>{const dt=new DataTransfer();dt.items.add(new File(['{\"name\":\"Jane Example\",\"total\":42,\"password\":\"fake-example\"}'],'sample.json',{type:'application/json'}));const f=document.querySelector('#file');f.files=dt.files;f.dispatchEvent(new Event('change'));})()");
+  await until(()=>js("document.querySelector('#source').value.includes('Jane Example')"),'file import');
+  assert.equal(await js("document.querySelector('#format').value"),'json');
+  await js("document.querySelector('#mode').value='token';document.querySelector('#mode').dispatchEvent(new Event('change'));document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true}))");
+  await until(()=>js("document.querySelector('#output').value.length>0"),'JSON scan');
+  const structured=JSON.parse(await js("document.querySelector('#output').value"));
+  assert.equal(structured.total,42);assert.match(structured.name,/\[PERSON_NAME_J\d+\]/);
+  assert.match(structured.password,/\[CREDENTIAL_J\d+\]/);
+  assert.equal(await js("document.querySelector('#risk').textContent"),'Input risk: Critical');
+  await js("document.querySelector('#filter').value='critical';document.querySelector('#filter').dispatchEvent(new Event('change'))");
+  assert.equal(await js("document.querySelectorAll('#findings tr').length"),1);
+  assert.equal(await js("document.querySelector('#report').disabled"),false);
+  // Intercept the generated local blob to inspect the metadata export.
+  await js("(()=>{const original=URL.createObjectURL;const click=HTMLAnchorElement.prototype.click;URL.createObjectURL=b=>{window.__report=b.text();return original.call(URL,b)};HTMLAnchorElement.prototype.click=function(){};try{document.querySelector('#report').click()}finally{URL.createObjectURL=original;HTMLAnchorElement.prototype.click=click}})()");
+  const report=JSON.parse(await js("window.__report"));
+  assert.equal(report.summary.total,2);assert.ok(!Object.hasOwn(report,'text'));assert.ok(!JSON.stringify(report).includes('Jane Example'));
+  await js("document.querySelector('#egress').value='block-critical';document.querySelector('#egress').dispatchEvent(new Event('change'));document.querySelector('#scan').click()");
+  await until(()=>js("document.querySelector('#resultState').textContent==='Blocked by policy'"),'strict block');
+  assert.equal(await js("document.querySelector('#output').value"),'');
+  assert.equal(await js("document.querySelector('#review').disabled"),true);
+  assert.equal(await js("document.querySelector('#copy').disabled"),true);
+  assert.equal(await js("document.querySelector('#download').disabled"),true);
+  assert.equal(await js("document.querySelector('#report').disabled"),false);
+  await js("document.querySelector('#clear').click()");
+  assert.equal(await js("document.querySelector('#report').disabled"),true);
+  console.log('Browser smoke checks passed: worker, CSP, review, stale output, mask, XSS, import, JSON, keyboard, filtering, metadata and policy blocking.');
 }finally{
   if(ws)ws.close();
   if(browser&&browser.exitCode===null&&browser.signalCode===null){
