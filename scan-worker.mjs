@@ -1,8 +1,2 @@
-import {redact,verifyRedacted} from './engine.mjs';
-self.onmessage=({data})=>{
-  try{
-    const result=redact(data.input,{mode:data.mode});
-    verifyRedacted(result);
-    self.postMessage({ok:true,result});
-  }catch{self.postMessage({ok:false});}
-};
+import {inspect} from './pipeline.mjs';
+self.onmessage=({data})=>{try{self.postMessage({ok:true,result:inspect(data.input,{mode:data.mode,format:data.format,policy:data.policy})});}catch{self.postMessage({ok:false});}};

@@ -1,7 +1,7 @@
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
-const files={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.mjs':'app.mjs','/engine.mjs':'engine.mjs','/scan-worker.mjs':'scan-worker.mjs','/icon.svg':'icon.svg'};
+const files={'/':'index.html','/index.html':'index.html','/style.css':'style.css','/app.mjs':'app.mjs','/engine.mjs':'engine.mjs','/pipeline.mjs':'pipeline.mjs','/scan-worker.mjs':'scan-worker.mjs','/icon.svg':'icon.svg'};
 const mime={html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',mjs:'text/javascript; charset=utf-8',svg:'image/svg+xml'};
 export function createApp({allowedHosts=['127.0.0.1','localhost']}={}){
   const server=createServer({requestTimeout:5000,headersTimeout:5000,keepAliveTimeout:2000,maxHeaderSize:8192},async(req,res)=>{

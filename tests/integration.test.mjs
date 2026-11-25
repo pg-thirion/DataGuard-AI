@@ -51,3 +51,22 @@ test('audit adapter is mandatory and audit failure on denial is sanitised',async
   await assert.rejects(createGuardedClient({review:()=>false,audit:()=>{throw Error('private error');},send:()=>{sent=true;}}).submit('demo@example.test'),{code:'AUDIT_FAILED'});
   assert.equal(sent,false);
 });
+
+test('strict adapter blocks before review and egress with correlated audit',async()=>{
+  let calls=0;const events=[];
+  const client=createGuardedClient({settings:{policy:'block-any'},review:()=>{calls++;return true;},send:()=>{calls++;},audit:e=>events.push(e)});
+  await assert.rejects(client.submit('demo@example.test'),{code:'POLICY_BLOCKED'});
+  assert.equal(calls,0);assert.equal(events[0].outcome,'policy-blocked');assert.match(events[0].requestId,/^[a-f0-9-]{36}$/);
+});
+test('review deadline prevents provider call and logs failure',async()=>{
+  let sent=false;const events=[];
+  const c=createGuardedClient({reviewTimeoutMs:20,review:()=>new Promise(()=>{}),audit:e=>events.push(e),send:()=>{sent=true;}});
+  await assert.rejects(c.submit('demo@example.test'),{code:'REVIEW_FAILED'});
+  assert.equal(sent,false);assert.equal(events[0].outcome,'review-failed');
+});
+test('CLI structured JSON, metadata and blocking exit code',()=>{
+  const r=spawnSync(process.execPath,['cli.mjs','--json'],{input:'{"name":"Jane Example","total":42}',encoding:'utf8'});
+  assert.equal(r.status,0);assert.equal(JSON.parse(r.stdout).total,42);assert.ok(!r.stdout.includes('Jane Example'));
+  const s=spawnSync(process.execPath,['cli.mjs','--block-any','--metadata'],{input:'demo@example.test',encoding:'utf8'});
+  assert.equal(s.status,2);assert.equal(JSON.parse(s.stdout).blocked,true);assert.ok(!s.stdout.includes('example.test'));
+});

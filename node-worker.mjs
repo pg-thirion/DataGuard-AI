@@ -1,3 +1,3 @@
 import {parentPort,workerData} from 'node:worker_threads';
-import {redact,verifyRedacted} from './engine.mjs';
-try{const result=redact(workerData.input,{mode:workerData.mode});verifyRedacted(result);parentPort.postMessage({ok:true,result});}catch{parentPort.postMessage({ok:false});}
+import {inspect} from './pipeline.mjs';
+try{const {input,mode,format,policy}=workerData;parentPort.postMessage({ok:true,result:inspect(input,{mode,format,policy})});}catch{parentPort.postMessage({ok:false});}

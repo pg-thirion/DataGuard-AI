@@ -19,3 +19,5 @@ Pattern detection misses some unlabelled names, addresses, novel encodings, spli
 - Privacy impact assessment, retention policy and organisational approval. No POPIA compliance claim.
 
 Report vulnerabilities privately to the repository owner via GitHub's private vulnerability reporting if enabled. Never attach real customer records, credentials or raw scan logs. Use fictional reproduction data.
+
+JSON field handling is conservative and can change business semantics. It is not a JSON schema validation library. Names in free text remain a known gap. Callback timeouts stop the adapter waiting but cannot force uncooperative trusted callbacks to stop. Browser inactivity clearing is best effort and cannot erase clipboard or OS memory.

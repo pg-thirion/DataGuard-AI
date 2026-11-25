@@ -63,3 +63,11 @@ Read [SECURITY.md](SECURITY.md) for the threat model, limitations and production
 ## Additional detection (policy v3)
 
 Twenty new detector categories cover Stripe-style keys, package tokens, Twilio-style tokens, webhook secrets, cookies, recovery codes, OTPs, routing numbers, card expiry, labelled US SSNs, medical record identifiers, employee identifiers, vehicle identifiers, GPS coordinates, salary, labelled health information, driving licence numbers, labelled phone values, cloud connection secrets and SSH fingerprints. All patterns are heuristic; some intentionally favour privacy over precision.
+
+## Version 0.3: structured payloads and policy enforcement
+
+Select Plain text or Structured JSON in the browser or use `node cli.mjs --json < input.json`. JSON scanning recursively processes known sensitive field names, arrays, scalar values and keys. Sensitive fields are replaced wholesale, including nested objects. Safe numbers, booleans and nulls are preserved. Detected numeric identifiers become strings. JSON uses standard JSON.parse duplicate-key semantics; formatting and object types may change. Sensitive keys, prototype-related keys, unsafe numeric integers and excessive nesting are rejected. Structured findings omit source offsets.
+
+Choose Redact and review, Block critical or Block any detection. Blocked scans return no content. CLI flags `--block-critical` and `--block-any` return exit code 2 when blocked. `--metadata` exports only counts, policy and category metadata. The browser supports local UTF-8 imports, risk summaries, severity filters, metadata downloads, keyboard scan shortcuts and inactivity clearing. CSV is treated as plain text, not a structured table.
+
+The guarded client accepts `settings: {format: 'json', policy: 'block-critical', mode: 'mask'}`. Review, audit and provider deadlines are configurable. Callbacks receive an AbortSignal and must honour it. An expired provider call cannot be undone. Audit events have per-submission UUIDs. Metadata-only reports may still be sensitive in context; protect their storage.

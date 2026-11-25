@@ -1,6 +1,6 @@
 {
   "name": "dataguard-ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
-    "check": "node --check engine.mjs && node --check app.mjs && node --check guard.mjs && node --check server.mjs",
+    "check": "node --check engine.mjs && node --check app.mjs && node --check guard.mjs && node --check server.mjs && node --check pipeline.mjs && node --check node-worker.mjs && node --check scan-worker.mjs && node --check cli.mjs",
     "evaluate": "node evaluation/evaluate.mjs",
     "test:browser": "node browser/smoke.mjs"
   }
