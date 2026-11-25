@@ -90,3 +90,11 @@ assert.throws(()=>redact('x'.repeat(200001)),RangeError);
 assert.throws(()=>redact('x',{mode:'wrong'}),TypeError);
 assert.equal(redact('email: demo@example.test').findings[0].start,7);
 console.log('All DataGuard regression checks passed');
+
+assert.equal(prepareForModel('password: fictional-test-credential'),'password: [CREDENTIAL_1]');
+assert.equal(prepareForModel('name: Jane Example\nemail: demo@example.test'),'name: [PERSON_NAME_1]\nemail: [EMAIL_1]');
+const idPrefix='900101500908';
+const validIds=Array.from({length:10},(_,i)=>idPrefix+i).filter(id=>redact(id).findings.some(f=>f.type==='SA_ID'));
+assert.equal(validIds.length,1);
+assert.equal(redact(validIds[0]).text,'[SA_ID_1]');
+assert.ok(!redact('9913325009080').findings.some(f=>f.type==='SA_ID'));
