@@ -1,0 +1,14 @@
+import {redact,categories} from './engine.mjs';
+const $=id=>document.getElementById(id);
+const source=$('source'),output=$('output'),policy=$('policy'),findings=$('findings');
+const human=s=>s.toLowerCase().replaceAll('_',' ').replace(/^./,x=>x.toUpperCase());
+for(const c of categories){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.checked=true;box.value=c.type;label.append(box,document.createTextNode(human(c.type)));policy.append(label);}
+function reset(){output.value='';findings.replaceChildren();for(const k of ['total','critical','high','medium'])$(k).textContent='0';$('copy').disabled=true;$('resultState').textContent='Not scanned';$('empty').hidden=false;$('empty').textContent='No scan results yet.';$('status').textContent='';$('length').textContent=source.value.length.toLocaleString()+' characters';}
+source.addEventListener('input',reset);policy.addEventListener('change',reset);$('mode').addEventListener('change',reset);
+$('clear').addEventListener('click',()=>{source.value='';reset();source.focus();});
+$('example').addEventListener('click',()=>{source.value='Customer name: Jane Example\nEmail: jane@example.test\nPhone: +27 82 555 0199\nClaim number: CLM-2026-TEST\nBank account: 1234567890\nPayment card: 4111 1111 1111 1111\npassword: "fictional-demo-only"\nIP address: 192.0.2.10\n\nPlease summarise this synthetic support ticket.';reset();source.focus();});
+$('scan').addEventListener('click',()=>{reset();try{const disabled=[...policy.querySelectorAll('input:not(:checked)')].map(x=>x.value);const r=redact(source.value,{disabled,mode:$('mode').value});output.value=r.text;for(const [k,v] of Object.entries(r.summary))$(k).textContent=String(v);
+for(const f of r.findings){const tr=document.createElement('tr');for(const val of [human(f.type),f.severity,String(f.start)+'–'+String(f.end),f.replacement]){const td=document.createElement('td');td.textContent=val;if(val===f.severity)td.className=f.severity;tr.append(td);}findings.append(tr);}
+$('empty').hidden=r.findings.length>0;$('empty').textContent='No enabled patterns matched. Review the content manually.';$('copy').disabled=!r.text;$('resultState').textContent=disabled.length?'Scanned with '+disabled.length+' disabled categories':'Scanned • review required';$('status').textContent=r.findings.length+' sensitive spans replaced. '+(disabled.length?'Warning: categories disabled. ':'')+'Check output before sharing.';}catch(e){$('status').textContent=e.message;}});
+$('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(output.value);$('status').textContent='Redacted output copied.';}catch{$('status').textContent='Clipboard unavailable. Select and copy the output manually.';}});
+window.addEventListener('pagehide',()=>{source.value='';reset();});
