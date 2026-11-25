@@ -46,7 +46,7 @@ $('scan').addEventListener('click',()=>{
     worker.postMessage({input:source.value,mode:$('mode').value,format:$('format').value,policy:$('egress').value});
   }catch{failed('Unable to start local scanner. No output released.');}
 });
-$('copy').addEventListener('click',async()=>{if(!ready||!review.checked)return;try{await navigator.clipboard.writeText(output.value);$('status').textContent='Reviewed output copied.';}catch{$('status').textContent='Clipboard unavailable. Use the reviewed download.';}});
+$('copy').addEventListener('click',async()=>{if(!ready||!review.checked)return;const job=generation;try{await navigator.clipboard.writeText(output.value);if(job===generation)$('status').textContent='Reviewed output copied.';}catch{if(job===generation)$('status').textContent='Clipboard unavailable. Use the reviewed download.';}});
 $('download').addEventListener('click',()=>{if(!ready||!review.checked)return;const url=URL.createObjectURL(new Blob([output.value],{type:last.format==='json'?'application/json':'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=last.format==='json'?'dataguard-redacted.json':'dataguard-redacted.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 $('report').addEventListener('click',()=>{if(!last)return;const url=URL.createObjectURL(new Blob([JSON.stringify(metadataReport(last),null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='dataguard-metadata.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
 function touch(){clearTimeout(idle);idle=setTimeout(()=>{source.value='';reset();$('status').textContent='Workspace cleared after inactivity.';},300000);}

@@ -4,6 +4,7 @@ import {createGuardedClient,scan} from '../guard.mjs';
 import {createApp} from '../server.mjs';
 import {spawnSync} from 'node:child_process';
 import {once} from 'node:events';
+import {request} from 'node:http';
 
 test('guard sends only reviewed redacted prompt; audit has no text',async()=>{
   const events=[];let calls=0;
@@ -40,7 +41,11 @@ test('static server restricts host, methods, paths and egress',async()=>{
     assert.equal((await fetch(base+'/guard.mjs')).status,404);
     assert.equal((await fetch(base+'/scan-worker.mjs')).status,200);
     assert.equal((await fetch(base,{method:'POST',body:'demo@example.test'})).status,405);
-    assert.equal((await fetch(base,{headers:{host:'attacker.invalid'}})).status,421);
+    const forgedStatus=await new Promise((resolve,reject)=>{
+      const req=request(base,{headers:{Host:'attacker.invalid'}},response=>{response.resume();resolve(response.statusCode);});
+      req.once('error',reject);req.end();
+    });
+    assert.equal(forgedStatus,421);
     assert.equal((await fetch(base,{method:'HEAD'})).status,200);
   }finally{server.close();server.closeAllConnections();}
 });
@@ -69,4 +74,32 @@ test('CLI structured JSON, metadata and blocking exit code',()=>{
   assert.equal(r.status,0);assert.equal(JSON.parse(r.stdout).total,42);assert.ok(!r.stdout.includes('Jane Example'));
   const s=spawnSync(process.execPath,['cli.mjs','--block-any','--metadata'],{input:'demo@example.test',encoding:'utf8'});
   assert.equal(s.status,2);assert.equal(JSON.parse(s.stdout).blocked,true);assert.ok(!s.stdout.includes('example.test'));
+});
+
+test('four worker slots are bounded and reusable',async()=>{
+  const pending=Array.from({length:4},()=>scan('demo@example.test'));
+  await assert.rejects(scan('another@example.test'),{code:'BUSY'});
+  const results=await Promise.all(pending);assert.equal(results.length,4);
+  assert.ok(results.every(r=>r.text==='[EMAIL_1]'));
+  assert.equal((await scan('Clean content')).text,'Clean content');
+});
+test('provider deadline signals cancellation',async()=>{
+  let signal,events=[];
+  const client=createGuardedClient({review:()=>true,audit:e=>events.push(e),sendTimeoutMs:20,send:(_text,s)=>{signal=s;return new Promise(()=>{});}});
+  await assert.rejects(client.submit('demo@example.test'),{code:'PROVIDER_FAILED'});
+  assert.equal(signal.aborted,true);assert.equal(events[0].outcome,'approved');
+});
+test('audit timeout blocks egress',async()=>{
+  let sent=false,signal;
+  const client=createGuardedClient({review:()=>true,auditTimeoutMs:20,audit:(_e,s)=>{signal=s;return new Promise(()=>{});},send:()=>{sent=true;}});
+  await assert.rejects(client.submit('demo@example.test'),{code:'AUDIT_FAILED'});
+  assert.equal(signal.aborted,true);assert.equal(sent,false);
+});
+test('HTTP allowlist serves pipeline module, rejects traversal and secret files',async()=>{
+  const server=createApp();server.listen(0,'127.0.0.1');await once(server,'listening');
+  const base='http://127.0.0.1:'+server.address().port;
+  try{
+    assert.equal((await fetch(base+'/pipeline.mjs')).status,200);
+    for(const path of ['/.git/config','/tests/integration.test.mjs','/guard.mjs','/%2e%2e%2fREADME.md'])assert.equal((await fetch(base+path)).status,404);
+  }finally{server.close();server.closeAllConnections();}
 });
