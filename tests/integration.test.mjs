@@ -4,6 +4,7 @@ import {createGuardedClient,scan} from '../guard.mjs';
 import {createApp} from '../server.mjs';
 import {spawnSync} from 'node:child_process';
 import {once} from 'node:events';
+import {request} from 'node:http';
 
 test('guard sends only reviewed redacted prompt; audit has no text',async()=>{
   const events=[];let calls=0;
@@ -40,7 +41,11 @@ test('static server restricts host, methods, paths and egress',async()=>{
     assert.equal((await fetch(base+'/guard.mjs')).status,404);
     assert.equal((await fetch(base+'/scan-worker.mjs')).status,200);
     assert.equal((await fetch(base,{method:'POST',body:'demo@example.test'})).status,405);
-    assert.equal((await fetch(base,{headers:{host:'attacker.invalid'}})).status,421);
+    const forgedStatus=await new Promise((resolve,reject)=>{
+      const req=request(base,{headers:{Host:'attacker.invalid'}},response=>{response.resume();resolve(response.statusCode);});
+      req.once('error',reject);req.end();
+    });
+    assert.equal(forgedStatus,421);
     assert.equal((await fetch(base,{method:'HEAD'})).status,200);
   }finally{server.close();server.closeAllConnections();}
 });
