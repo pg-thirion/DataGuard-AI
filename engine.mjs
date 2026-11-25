@@ -8,7 +8,7 @@ function saId(value){
   const y=Number(value.slice(0,2)),m=Number(value.slice(2,4)),d=Number(value.slice(4,6));
   return [1900+y,2000+y].some(year=>{const date=new Date(Date.UTC(year,m-1,d));return date.getUTCMonth()===m-1&&date.getUTCDate()===d;})&&/[01]/.test(value[10])&&luhn(value);
 }
-export const POLICY_VERSION = "2.0.0";
+export const POLICY_VERSION = "2.1.0";
 export const MAX_INPUT = 200000;
 function normalise(input) {
   let text="";
@@ -26,24 +26,25 @@ function normalise(input) {
 const rules = [
 ["PRIVATE_KEY","critical",/-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----|$)/g,null,null],
 ["API_KEY","critical",/\b(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|ASIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g,null,null],
-["WEB_SECRET","critical",/\b(?:token|signature|sig|key|password|secret|code)=([^&#\s"'<>]{4,2048})/gi,[1],null],
+["WEB_SECRET","critical",/\b(?:token|signature|sig|key|password|secret|code)=([^&#\s"'<>]+)/gi,[1],null],
 ["JWT","critical",/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,null,null],
 ["CREDENTIAL","critical",/\b(?:password|passwd|pwd|api[_ -]?key|client[_ -]?secret|access[_ -]?token|refresh[_ -]?token|secret[_ -]?key|aws_secret_access_key|session[_ -]?token|authorization[_ -]?token|private[_ -]?key|wagwoord)\s*["']?\s*[:=]\s*(?:"((?:\\.|[^"\\\r\n])*)(?:"|(?=\r?\n|$))|'((?:\\.|[^'\\\r\n])*)(?:'|(?=\r?\n|$))|([^\s,;}]+))/gi,[1,2,3],null],
 ["AUTH_TOKEN","critical",/\b(?:Bearer|Basic)\s+([A-Za-z0-9._~+/=-]{4,})/gi,[1],null],
-["CONNECTION_SECRET","critical",/\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|https?|ftp|amqps?):\/\/([^\s/@]{1,2048}:[^\s/@]{1,2048})@/gi,[1],null],
-["LABELLED_ID","high",/\b(?:south african id|national[_ ]id|identity[_ ]number|id[_ ]number|idnommer|identiteitsnommer|id)\s*["']?\s*[:=]\s*["']?([A-Z0-9](?:[ -]?[A-Z0-9]){5,39})/gi,[1],null],
-["LABELLED_CARD","high",/\b(?:(?:payment|credit|debit)[_ ]card(?:[_ ]number)?|card[_ ]number|card)\s*["']?\s*[:=]\s*["']?(\d(?:[ -]?\d){7,30})/gi,[1],null],
+["CONNECTION_SECRET","critical",/\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|https?|ftp|amqps?):\/\/([^\s/:@]+:[^\s/@]+)@/gi,[1],null],
+["LABELLED_ID","high",/\b(?:south african id|national[_ ]id|identity[_ ]number|id[_ ]number|idnommer|identiteitsnommer|id)\s*["']?\s*[:=]\s*["']?([A-Z0-9](?:[ -]?[A-Z0-9]){5,})/gi,[1],null],
+["LABELLED_CARD","high",/\b(?:(?:payment|credit|debit)[_ ]card(?:[_ ]number)?|card[_ ]number|card)\s*["']?\s*[:=]\s*["']?(\d(?:[ -]?\d){7,})/gi,[1],null],
 ["SA_ID","high",/\b\d{13}\b/g,null,saId],
 ["PAYMENT_CARD","high",/(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)/g,null,v=>{const d=v.replace(/\D/g,"");return d.length>=13&&d.length<=19&&!/^(\d)\1+$/.test(d)&&luhn(d);}],
-["BANK_ACCOUNT","high",/\b(?:bank[_ ]account(?:[_ ](?:number|no\.?))?|account[_ ](?:number|no\.?)|iban|rekeningnommer)\s*["']?\s*[:=]\s*["']?([A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){8,30}|\d(?:[ -]?\d){3,33})/gi,[1],null],
-["FINANCIAL_ID","high",/\b(?:cvv|cvc|card pin|tax(?:payer)? (?:number|id)|vat (?:number|no\.?))\s*["']?\s*[:=]\s*["']?(\d{3,15})\b/gi,[1],null],
-["POLICY_NUMBER","high",/\b(?:(?:policy|claim|passport|customer|member|medical[_ ]aid)[_ ](?:number|no\.?|id)|polisnommer|eisnommer|paspoortnommer)\s*["']?\s*[:=]\s*["']?([A-Za-z0-9][A-Za-z0-9_/-]{1,127})/gi,[1],null],
+["BANK_ACCOUNT","high",/\b(?:bank[_ ]account(?:[_ ](?:number|no\.?))?|account[_ ](?:number|no\.?)|iban|rekeningnommer)\s*["']?\s*[:=]\s*["']?([A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){8,}|\d(?:[ -]?\d){3,})/gi,[1],null],
+["FINANCIAL_ID","high",/\b(?:cvv|cvc|card pin|tax(?:payer)? (?:number|id)|vat (?:number|no\.?))\s*["']?\s*[:=]\s*["']?(\d{3,})\b/gi,[1],null],
+["POLICY_NUMBER","high",/\b(?:(?:policy|claim|passport|customer|member|medical[_ ]aid)[_ ](?:number|no\.?|id)|polisnommer|eisnommer|paspoortnommer)\s*["']?\s*[:=]\s*["']?([A-Za-z0-9][A-Za-z0-9_/-]{1,})/gi,[1],null],
+["OBFUSCATED_EMAIL","medium",/(?<![\w.])[A-Z0-9._%+-]{1,128}[ \t]{0,8}(?:\[at\]|\(at\))[ \t]{0,8}[A-Z0-9-]{1,63}(?:[ \t]{0,8}(?:\[dot\]|\(dot\)|\.)[ \t]{0,8}[A-Z0-9-]{1,63}){1,10}(?![\w-])/gi,null,null],
 ["EMAIL","medium",/(?<![A-Z0-9.!#$%&'*+/=?^_`{|}~-])[A-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,128}@[A-Z0-9-]{1,63}(?:\.[A-Z0-9-]{1,63}){1,10}(?![A-Z0-9-])/gi,null,null],
 ["PHONE","medium",/(?<![\w\d])(?:\+27[ .-]?(?:\(0\)[ .-]?)?|0)[1-9]\d(?:[ .-]?\d){7}(?!\d)|(?<![\w\d])\+[1-9]\d{0,2}(?:[ .-]?\d){7,12}(?!\d)/g,null,null],
 ["MAC_ADDRESS","medium",/\b(?:[0-9A-F]{2}[:-]){5}[0-9A-F]{2}\b/gi,null,null],
 ["IP_ADDRESS","medium",/\b(?:\d{1,3}\.){3}\d{1,3}\b/g,null,v=>v.split(".").every(n=>Number(n)<=255)],
-["PERSON_NAME","medium",/\b(?:full[_ ]name|customer[_ ]name|policyholder[_ ]name|patient[_ ]name|first[_ ]name|last[_ ]name|surname|name|naam|van)\s*["']?\s*[:=]\s*["']?([\p{L}][\p{L}\p{M}.'’ -]{1,159}?)(?=["\r\n,;}]|$)/giu,[1],null],
-["ADDRESS","medium",/\b(?:street[_ ]address|postal[_ ]address|home[_ ]address|address|adres)\s*["']?\s*[:=]\s*["']?([^\r\n";]{4,512})/gi,[1],null],
+["PERSON_NAME","medium",/\b(?:full[_ ]name|customer[_ ]name|policyholder[_ ]name|patient[_ ]name|first[_ ]name|last[_ ]name|surname|name|naam|van)\s*["']?\s*[:=]\s*["']?([\p{L}][\p{L}\p{M}.'’ -]{1,}?)(?=["\r\n,;}]|$)/giu,[1],null],
+["ADDRESS","medium",/\b(?:street[_ ]address|postal[_ ]address|home[_ ]address|address|adres)\s*["']?\s*[:=]\s*["']?([^\r\n";]{4,})/gi,[1],null],
 ["DATE_OF_BIRTH","medium",/\b(?:date[_ ]of[_ ]birth|dob|birth[_ ]date|geboortedatum)\s*["']?\s*[:=]\s*["']?(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4})/gi,[1],null],
 ];
 export function redact(input,options={}){

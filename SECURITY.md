@@ -4,7 +4,7 @@
 
 DataGuard handles untrusted text. The browser runs detection in a dedicated worker, the Node adapter uses a bounded worker pool, and the local server serves an explicit asset allowlist. No request containing source text is necessary. There is no telemetry or database. Review is required before the UI enables its export controls or the guarded Node client invokes a provider callback. The browser is a user-operated tool, not an enforcement boundary against someone manually selecting or copying text.
 
-Trusted: browser runtime, operating system, package source, organisation's review/audit/provider callbacks and deployment. Untrusted: all input text and any model response. A compromised browser extension, host or trusted callback is outside this control. The review callback must implement actual organisational approval, not always return true.
+Trusted: browser runtime, operating system, package source, organisation's review/audit/provider callbacks and deployment. Untrusted: all input text and any model response. A compromised browser extension, host or trusted callback is outside this control. The review callback must implement actual organisational approval, not always return true. The mandatory audit callback must persist only non-sensitive metadata in the organisation's approved audit system.
 
 ## Known gaps
 

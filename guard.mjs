@@ -23,7 +23,7 @@ export async function scan(input,{mode='token',timeoutMs=3000}={}){
   finally{clearTimeout(timer);try{if(worker)await worker.terminate();}finally{active--;}}
 }
 // Trusted application callbacks only. No original text or raw matched values are passed.
-export function createGuardedClient({review,send,audit=()=>{}}){
+export function createGuardedClient({review,send,audit}){
   if(typeof review!=='function'||typeof send!=='function'||typeof audit!=='function')throw new GuardError('INVALID_ADAPTER');
   return Object.freeze({
     async submit(input){
@@ -32,7 +32,7 @@ export function createGuardedClient({review,send,audit=()=>{}}){
       const reviewed=Object.freeze({text:result.text,...event});
       let approved;
       try{approved=await review(reviewed);}catch{throw new GuardError('REVIEW_FAILED');}
-      if(approved!==true){await audit(Object.freeze({...event,outcome:'blocked'}));throw new GuardError('REVIEW_REQUIRED');}
+      if(approved!==true){try{await audit(Object.freeze({...event,outcome:'blocked'}));}catch{throw new GuardError('AUDIT_FAILED');}throw new GuardError('REVIEW_REQUIRED');}
       // Audit failure blocks egress. Only the immutable, reviewed prompt goes to the provider.
       try{await audit(Object.freeze({...event,outcome:'approved'}));}catch{throw new GuardError('AUDIT_FAILED');}
       try{return await send(result.text);}catch{throw new GuardError('PROVIDER_FAILED');}

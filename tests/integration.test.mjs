@@ -44,3 +44,10 @@ test('static server restricts host, methods, paths and egress',async()=>{
     assert.equal((await fetch(base,{method:'HEAD'})).status,200);
   }finally{server.close();server.closeAllConnections();}
 });
+
+test('audit adapter is mandatory and audit failure on denial is sanitised',async()=>{
+  assert.throws(()=>createGuardedClient({review:()=>true,send:()=>{}}),{code:'INVALID_ADAPTER'});
+  let sent=false;
+  await assert.rejects(createGuardedClient({review:()=>false,audit:()=>{throw Error('private error');},send:()=>{sent=true;}}).submit('demo@example.test'),{code:'AUDIT_FAILED'});
+  assert.equal(sent,false);
+});

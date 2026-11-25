@@ -116,3 +116,11 @@ assert.throws(()=>prepareForModel("text\u200btext"),/control characters/);
 assert.equal(redact("A".repeat(200000)).findings.length,0);
 assert.ok(redact("x".repeat(200001-1)).text.length===200000);
 assert.equal(redact("😀 demo@example.test").findings[0].start,3);
+
+assert.equal(prepareForModel("Contact demo [at] example [dot] test."),"Contact [OBFUSCATED_EMAIL_1].");
+assert.equal(prepareForModel("demo(at)example(dot)test"),"[OBFUSCATED_EMAIL_1]");
+assert.equal(redact("address: "+"A".repeat(1200)).text,"address: [ADDRESS_1]");
+assert.equal(redact("account number: "+"9".repeat(60)).text,"account number: [BANK_ACCOUNT_1]");
+assert.equal(redact("claim number: "+"X".repeat(180)).text,"claim number: [POLICY_NUMBER_1]");
+assert.equal(redact("https://example.test/?token="+"Z".repeat(4096)).text,"https://example.test/?token=[WEB_SECRET_1]");
+assert.equal(redact("https://example.test/?token=x").text,"https://example.test/?token=[WEB_SECRET_1]");
