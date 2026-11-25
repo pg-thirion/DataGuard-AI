@@ -8,7 +8,7 @@ function saId(value){
   const y=Number(value.slice(0,2)),m=Number(value.slice(2,4)),d=Number(value.slice(4,6));
   return [1900+y,2000+y].some(year=>{const date=new Date(Date.UTC(year,m-1,d));return date.getUTCMonth()===m-1&&date.getUTCDate()===d;})&&/[01]/.test(value[10])&&luhn(value);
 }
-export const POLICY_VERSION = "2.1.0";
+export const POLICY_VERSION = "3.0.0";
 export const MAX_INPUT = 200000;
 function normalise(input) {
   let text="";
@@ -46,6 +46,26 @@ const rules = [
 ["PERSON_NAME","medium",/\b(?:full[_ ]name|customer[_ ]name|policyholder[_ ]name|patient[_ ]name|first[_ ]name|last[_ ]name|surname|name|naam|van)\s*["']?\s*[:=]\s*["']?([\p{L}][\p{L}\p{M}.'’ -]{1,}?)(?=["\r\n,;}]|$)/giu,[1],null],
 ["ADDRESS","medium",/\b(?:street[_ ]address|postal[_ ]address|home[_ ]address|address|adres)\s*["']?\s*[:=]\s*["']?([^\r\n";]{4,})/gi,[1],null],
 ["DATE_OF_BIRTH","medium",/\b(?:date[_ ]of[_ ]birth|dob|birth[_ ]date|geboortedatum)\s*["']?\s*[:=]\s*["']?(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4})/gi,[1],null],
+["STRIPE_KEY","critical",/\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9_-]{12,}\b/g,null,null],
+["PACKAGE_TOKEN","critical",/\b(?:npm_[A-Za-z0-9]{20,}|pypi-[A-Za-z0-9_-]{20,})\b/g,null,null],
+["TWILIO_TOKEN","critical",/\bSK[0-9a-fA-F]{32}\b/g,null,null],
+["WEBHOOK_SECRET","critical",/\b(?:whsec_[A-Za-z0-9_-]{12,}|(?:webhook[_ ]secret|signing[_ ]secret)\s*[:=]\s*["']?([^\r\n"';,]+))/gi,[1,0],null],
+["SESSION_COOKIE","critical",/\b(?:set-cookie|cookie|session[_ ]cookie)\s*:\s*([^\r\n]+)/gi,[1],null],
+["RECOVERY_CODE","critical",/\b(?:recovery[_ ]codes?|backup[_ ]codes?|seed[_ ]phrase|mnemonic[_ ]phrase)\s*["']?\s*[:=]\s*["']?([^\r\n"';}]+)/gi,[1],null],
+["ONE_TIME_CODE","critical",/\b(?:otp|one[- ]time (?:password|code)|verification[_ ]code|2fa[_ ]code)\s*["']?\s*[:=]\s*["']?([0-9]{4,12})\b/gi,[1],null],
+["ROUTING_NUMBER","high",/\b(?:routing[_ ]number|sort[_ ]code|branch[_ ]code|takkode)\s*["']?\s*[:=]\s*["']?(\d(?:[ -]?\d){4,})/gi,[1],null],
+["CARD_EXPIRY","high",/\b(?:card[_ ]expir(?:y|ation)(?:[_ ]date)?|card[_ ]exp|expiry[_ ]date)\s*["']?\s*[:=]\s*["']?(\d{1,2}[/-]\d{2,4})/gi,[1],null],
+["US_SSN","high",/\b(?:ssn|social[_ ]security[_ ]number)\s*["']?\s*[:=]\s*["']?(\d{3}[ -]?\d{2}[ -]?\d{4})\b/gi,[1],null],
+["MEDICAL_RECORD","high",/\b(?:medical[_ ]record[_ ](?:number|id)|patient[_ ]id|mrn)\s*["']?\s*[:=]\s*["']?([A-Z0-9][A-Z0-9_/-]*)/gi,[1],null],
+["EMPLOYEE_ID","high",/\b(?:employee|staff|personnel)[_ ](?:id|number)\s*["']?\s*[:=]\s*["']?([A-Z0-9][A-Z0-9_/-]*)/gi,[1],null],
+["VEHICLE_ID","medium",/\b(?:vin|vehicle[_ ]registration(?:[_ ]number)?|licen[cs]e[_ ]plate|registrasienommer)\s*["']?\s*[:=]\s*["']?([A-Z0-9][A-Z0-9 -]*)(?=["'\r\n,;}]|$)/gi,[1],null],
+["GPS_LOCATION","medium",/\b(?:gps|coordinates|location[_ ]coordinates)\s*["']?\s*[:=]\s*["']?([+-]?\d{1,2}\.\d{3,}\s*,\s*[+-]?\d{1,3}\.\d{3,})/gi,[1],null],
+["SALARY","high",/\b(?:salary|monthly[_ ]income|annual[_ ]income|gross[_ ]pay|net[_ ]pay|salaris)\s*["']?\s*[:=]\s*["']?((?:ZAR|USD|EUR|GBP|R|\$|£|€)?[ \t]*\d[\d ,.]*\d|\d)(?!\d)/gi,[1],null],
+["HEALTH_INFORMATION","high",/\b(?:diagnosis|medical[_ ]condition|medication|diagnose)\s*["']?\s*[:=]\s*["']?([^\r\n"';}]+)/gi,[1],null],
+["DRIVING_LICENCE","high",/\b(?:driver'?s?[_ ]licen[cs]e(?:[_ ]number)?|driving[_ ]licen[cs]e(?:[_ ]number)?)\s*["']?\s*[:=]\s*["']?([A-Z0-9][A-Z0-9/-]*)/gi,[1],null],
+["LABELLED_PHONE","medium",/\b(?:telephone|phone|mobile|cellphone|telefoon|selfoon)(?:[_ ]number)?\s*["']?\s*[:=]\s*["']?(\+?\d(?:[ .()-]?\d){5,})/gi,[1],null],
+["CLOUD_SECRET","critical",/\b(?:AccountKey|SharedAccessKey|SharedAccessSignature)\s*=\s*([^\s;,"']+)/gi,[1],null],
+["SSH_FINGERPRINT","medium",/\b(?:ssh[_ ]fingerprint)\s*[:=]\s*["']?((?:SHA256:|MD5:)[A-Za-z0-9+/=:]+)\b/gi,[1],null],
 ];
 export function redact(input,options={}){
   if(typeof input!=="string")throw new TypeError("Input must be text");
@@ -77,7 +97,7 @@ export function redact(input,options={}){
     const p=spans[spans.length-1];
     if(p&&c.start<p.end){
       p.end=Math.max(p.end,c.end);
-      if(rank[c.severity]>rank[p.severity]){p.type=c.type;p.severity=c.severity;}
+      if(rank[c.severity]>rank[p.severity]||(rank[c.severity]===rank[p.severity]&&p.type==="LABELLED_ID"&&c.type!=="LABELLED_ID")){p.type=c.type;p.severity=c.severity;}
     }else spans.push({...c});
   }
   const counts={}, identities=new Map(),findings=[];let output="",cursor=0;

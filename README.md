@@ -59,3 +59,7 @@ Compatibility characters, common dash variants and format characters are normali
 ## Deployment and assurance
 
 Read [SECURITY.md](SECURITY.md) for the threat model, limitations and production release gates. Detection is heuristic and does not establish anonymity or POPIA compliance. This tool is not a network DLP gateway by itself; enforce the adapter at the application boundary and deny alternative egress. Independent testing and representative evaluation are required before handling live insurance data.
+
+## Additional detection (policy v3)
+
+Twenty new detector categories cover Stripe-style keys, package tokens, Twilio-style tokens, webhook secrets, cookies, recovery codes, OTPs, routing numbers, card expiry, labelled US SSNs, medical record identifiers, employee identifiers, vehicle identifiers, GPS coordinates, salary, labelled health information, driving licence numbers, labelled phone values, cloud connection secrets and SSH fingerprints. All patterns are heuristic; some intentionally favour privacy over precision.
