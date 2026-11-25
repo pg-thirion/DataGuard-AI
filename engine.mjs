@@ -8,38 +8,62 @@ function saId(value){
   const y=Number(value.slice(0,2)),m=Number(value.slice(2,4)),d=Number(value.slice(4,6));
   return [1900+y,2000+y].some(year=>{const date=new Date(Date.UTC(year,m-1,d));return date.getUTCMonth()===m-1&&date.getUTCDate()===d;})&&/[01]/.test(value[10])&&luhn(value);
 }
+export const POLICY_VERSION = "2.0.0";
+export const MAX_INPUT = 200000;
+function normalise(input) {
+  let text="";
+  const starts=[],ends=[];
+  for(let i=0;i<input.length;){
+    const cp=String.fromCodePoint(input.codePointAt(i)), end=i+cp.length;
+    const normal=cp.normalize("NFKC").replace(/[\p{Cf}\u00ad]/gu,"").replace(/[\u2010-\u2015\u2212]/g,"-");
+    text+=normal;
+    for(let j=0;j<normal.length;j++){starts.push(i);ends.push(end);}
+    i=end;
+  }
+  if(text.length>MAX_INPUT*3)throw new RangeError("Normalised input exceeds limit");
+  return {text,starts,ends};
+}
 const rules = [
 ["PRIVATE_KEY","critical",/-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----[\s\S]*?(?:-----END (?:[A-Z0-9]+ )*PRIVATE KEY-----|$)/g,null,null],
 ["API_KEY","critical",/\b(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16}|ASIA[A-Z0-9]{16}|AIza[A-Za-z0-9_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,})\b/g,null,null],
+["WEB_SECRET","critical",/\b(?:token|signature|sig|key|password|secret|code)=([^&#\s"'<>]{4,2048})/gi,[1],null],
 ["JWT","critical",/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,null,null],
-["CREDENTIAL","critical",/\b(?:password|passwd|pwd|api[_ -]?key|client[_ -]?secret|access[_ -]?token|refresh[_ -]?token|secret[_ -]?key|aws_secret_access_key)\s*["']?\s*[:=]\s*(?:"([^"\r\n]+)"|'([^'\r\n]+)'|([^\s,;}\]]+))/gi,[1,2,3],null],
-["AUTH_TOKEN","critical",/\bBearer[ \t]+([A-Za-z0-9._~+/=-]{8,})/gi,[1],null],
-["CONNECTION_SECRET","critical",/\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|https?):\/\/[^\s:/@]+:([^\s/@]+)@/gi,[1],null],
+["CREDENTIAL","critical",/\b(?:password|passwd|pwd|api[_ -]?key|client[_ -]?secret|access[_ -]?token|refresh[_ -]?token|secret[_ -]?key|aws_secret_access_key|session[_ -]?token|authorization[_ -]?token|private[_ -]?key|wagwoord)\s*["']?\s*[:=]\s*(?:"((?:\\.|[^"\\\r\n])*)(?:"|(?=\r?\n|$))|'((?:\\.|[^'\\\r\n])*)(?:'|(?=\r?\n|$))|([^\s,;}]+))/gi,[1,2,3],null],
+["AUTH_TOKEN","critical",/\b(?:Bearer|Basic)\s+([A-Za-z0-9._~+/=-]{4,})/gi,[1],null],
+["CONNECTION_SECRET","critical",/\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|https?|ftp|amqps?):\/\/([^\s/@]{1,2048}:[^\s/@]{1,2048})@/gi,[1],null],
+["LABELLED_ID","high",/\b(?:south african id|national[_ ]id|identity[_ ]number|id[_ ]number|idnommer|identiteitsnommer|id)\s*["']?\s*[:=]\s*["']?([A-Z0-9](?:[ -]?[A-Z0-9]){5,39})/gi,[1],null],
+["LABELLED_CARD","high",/\b(?:(?:payment|credit|debit)[_ ]card(?:[_ ]number)?|card[_ ]number|card)\s*["']?\s*[:=]\s*["']?(\d(?:[ -]?\d){7,30})/gi,[1],null],
 ["SA_ID","high",/\b\d{13}\b/g,null,saId],
 ["PAYMENT_CARD","high",/(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)/g,null,v=>{const d=v.replace(/\D/g,"");return d.length>=13&&d.length<=19&&!/^(\d)\1+$/.test(d)&&luhn(d);}],
-["BANK_ACCOUNT","high",/\b(?:bank\s+account(?:\s+(?:number|no\.?))?|account\s+(?:number|no\.?)|account_number|iban)\s*["']?\s*[:=]\s*["']?([A-Z]{2}\d{2}[A-Z0-9 ]{8,30}|\d(?:[ -]?\d){5,17})/gi,[1],null],
+["BANK_ACCOUNT","high",/\b(?:bank[_ ]account(?:[_ ](?:number|no\.?))?|account[_ ](?:number|no\.?)|iban|rekeningnommer)\s*["']?\s*[:=]\s*["']?([A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){8,30}|\d(?:[ -]?\d){3,33})/gi,[1],null],
 ["FINANCIAL_ID","high",/\b(?:cvv|cvc|card pin|tax(?:payer)? (?:number|id)|vat (?:number|no\.?))\s*["']?\s*[:=]\s*["']?(\d{3,15})\b/gi,[1],null],
-["POLICY_NUMBER","high",/\b(?:policy|claim|passport|customer)\s+(?:number|no\.?|id)\s*["']?\s*[:=]\s*["']?([A-Za-z0-9][A-Za-z0-9/-]{3,30})/gi,[1],null],
-["EMAIL","medium",/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)+/gi,null,null],
+["POLICY_NUMBER","high",/\b(?:(?:policy|claim|passport|customer|member|medical[_ ]aid)[_ ](?:number|no\.?|id)|polisnommer|eisnommer|paspoortnommer)\s*["']?\s*[:=]\s*["']?([A-Za-z0-9][A-Za-z0-9_/-]{1,127})/gi,[1],null],
+["EMAIL","medium",/(?<![A-Z0-9.!#$%&'*+/=?^_`{|}~-])[A-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,128}@[A-Z0-9-]{1,63}(?:\.[A-Z0-9-]{1,63}){1,10}(?![A-Z0-9-])/gi,null,null],
 ["PHONE","medium",/(?<![\w\d])(?:\+27[ .-]?(?:\(0\)[ .-]?)?|0)[1-9]\d(?:[ .-]?\d){7}(?!\d)|(?<![\w\d])\+[1-9]\d{0,2}(?:[ .-]?\d){7,12}(?!\d)/g,null,null],
+["MAC_ADDRESS","medium",/\b(?:[0-9A-F]{2}[:-]){5}[0-9A-F]{2}\b/gi,null,null],
 ["IP_ADDRESS","medium",/\b(?:\d{1,3}\.){3}\d{1,3}\b/g,null,v=>v.split(".").every(n=>Number(n)<=255)],
-["PERSON_NAME","medium",/\b(?:full name|customer name|policyholder name|patient name|first name|last name|surname|name)\s*["']?\s*[:=]\s*["']?([\p{L}][\p{L}.'’ -]{1,79}?)(?=["'\r\n,;]|$)/giu,[1],null],
-["ADDRESS","medium",/\b(?:street address|postal address|home address|address)\s*["']?\s*[:=]\s*["']?([^\r\n";]{4,160})/gi,[1],null],
-["DATE_OF_BIRTH","medium",/\b(?:date of birth|dob|birth date)\s*["']?\s*[:=]\s*["']?(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4})/gi,[1],null]
+["PERSON_NAME","medium",/\b(?:full[_ ]name|customer[_ ]name|policyholder[_ ]name|patient[_ ]name|first[_ ]name|last[_ ]name|surname|name|naam|van)\s*["']?\s*[:=]\s*["']?([\p{L}][\p{L}\p{M}.'’ -]{1,159}?)(?=["\r\n,;}]|$)/giu,[1],null],
+["ADDRESS","medium",/\b(?:street[_ ]address|postal[_ ]address|home[_ ]address|address|adres)\s*["']?\s*[:=]\s*["']?([^\r\n";]{4,512})/gi,[1],null],
+["DATE_OF_BIRTH","medium",/\b(?:date[_ ]of[_ ]birth|dob|birth[_ ]date|geboortedatum)\s*["']?\s*[:=]\s*["']?(\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4})/gi,[1],null],
 ];
 export function redact(input,options={}){
   if(typeof input!=="string")throw new TypeError("Input must be text");
-  if(input.length>200000)throw new RangeError("Maximum input is 200,000 UTF-16 code units");
+  if(input.length>MAX_INPUT)throw new RangeError("Maximum input is 200,000 UTF-16 code units");
+  if(!options||typeof options!=="object"||Array.isArray(options))throw new TypeError("Invalid options");
   if(options.mode!==undefined&&!["token","mask"].includes(options.mode))throw new TypeError("Invalid mode");
+  if(Object.keys(options).some(k=>!["mode","disabled"].includes(k)))throw new TypeError("Unknown option");
+  if(options.disabled!==undefined&&(!Array.isArray(options.disabled)||options.disabled.some(t=>!rules.some(r=>r[0]===t))))throw new TypeError("Invalid category");
   const candidates=[], disabled=new Set(options.disabled||[]);
+  const {text:normal,starts,ends}=normalise(input);
   const rank={critical:3,high:2,medium:1};
   for(const [type,severity,pattern,groups,validate] of rules){
     if(disabled.has(type))continue;
     const re=new RegExp(pattern.source,pattern.flags.includes("d")?pattern.flags:pattern.flags+"d");
-    for(const match of input.matchAll(re)){
+    for(const match of normal.matchAll(re)){
       const idx=groups?groups.find(i=>match[i]!==undefined):0;
       if(idx===undefined)continue;
-      const value=match[idx], [start,end]=match.indices[idx];
+      const value=match[idx], [ns,ne]=match.indices[idx];
+      const start=starts[ns],end=ends[ne-1];
       if(!value||validate&&!validate(value))continue;
       if(candidates.length>=10000)throw new RangeError("Too many matches; split the input");
       candidates.push({type,severity,start,end});
@@ -58,17 +82,18 @@ export function redact(input,options={}){
   const counts={}, identities=new Map(),findings=[];let output="",cursor=0;
   for(const span of spans){
     const {type,severity,start,end}=span;
-    const value=input.slice(start,end),key=type+"\0"+value;
+    const value=input.slice(start,end),key=type+"\0"+normalise(value).text;
     if(!identities.has(key)){counts[type]=(counts[type]||0)+1;identities.set(key,"["+type+"_"+counts[type]+"]");}
     const replacement=options.mode==="mask"?"[REDACTED]":identities.get(key);
     output+=input.slice(cursor,start)+replacement;cursor=end;
     findings.push({type,severity,start,end,replacement});
   }
   output+=input.slice(cursor);
-  return {text:output,findings,summary:{total:findings.length,critical:findings.filter(x=>x.severity==="critical").length,high:findings.filter(x=>x.severity==="high").length,medium:findings.filter(x=>x.severity==="medium").length}};
+  return {policyVersion:POLICY_VERSION,text:output,findings,summary:{total:findings.length,critical:findings.filter(x=>x.severity==="critical").length,high:findings.filter(x=>x.severity==="high").length,medium:findings.filter(x=>x.severity==="medium").length}};
 }
-export function prepareForModel(input){
-  const result=redact(input);
+export function verifyRedacted(result){
+  if(!result||typeof result.text!=="string"||!Array.isArray(result.findings))throw new TypeError("Invalid scan result");
+  if(/[\p{Cf}\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(result.text))throw new Error("Unsupported control characters remain; review manually");
   // Only ignore residual matches wholly inside tokens actually generated by this scan.
   let delta=0;
   const generated=result.findings.map(f=>{
@@ -85,4 +110,5 @@ export function prepareForModel(input){
   }
   return result.text;
 }
+export function prepareForModel(input){return verifyRedacted(redact(input));}
 export const categories = rules.map(([type,severity])=>({type,severity}));

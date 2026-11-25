@@ -1,17 +1,18 @@
 # DataGuard AI
 
-Local-first data loss prevention for AI prompts, support tickets and insurance workflows. A dependency-free, deterministic detector redacts sensitive spans before an application sends content to a model. This is a portfolio MVP, not a certified DLP product.
+Local-first sensitive-data redaction and reviewed model egress for AI-assisted insurance and support workflows. Version 0.2 introduces isolated scanning, bounded resources, normalisation-aware detection and a fail-closed application adapter. This is a hardened reference implementation, not a certified production DLP product.
 
-## Run locally
+## Quick start
 
-Requires Node.js 20+ for the CLI and tests, and a modern browser for the workbench.
+Requires Node.js 22 or newer and a modern browser. No third-party runtime dependencies or model API keys.
 
 ```sh
 npm test
+npm run evaluate
 npm start
 ```
 
-Open http://127.0.0.1:8080. No API key or database is needed.
+Open http://127.0.0.1:8080. Paste synthetic text, scan, review and export. The static server binds only to loopback. Do not expose it directly to the public internet.
 
 ```sh
 node cli.mjs < input.txt > redacted.txt
@@ -19,39 +20,42 @@ node cli.mjs --report < input.txt
 node cli.mjs --mask < input.txt
 ```
 
-The report contains redacted output, types, severity, offsets and replacement tokens, never original matched values. Unmatched sensitive data can remain.
+The CLI is a scanner, not an approval workflow. Reports include redacted text and metadata, not original matched spans. Unmatched sensitive content can remain.
 
-## Integrate before model calls
+## Integrate at the model boundary
 
 ```js
-import { prepareForModel, redact } from './engine.mjs';
+import { createGuardedClient } from './guard.mjs';
 
-const { text, summary } = redact(userInput);
-const reviewedPrompt = prepareForModel(userInput);
-// Review according to your organisation's policy before passing
-// reviewedPrompt to your model SDK. Do not send userInput.
+const guard = createGuardedClient({
+  review: async ({ text, summary }) => {
+    // Implement actual authenticated human/organisational approval.
+    return await yourReviewWorkflow(text, summary);
+  },
+  audit: async event => {
+    // Metadata only. Do not attach prompts or provider responses.
+    await yourAuditSink(event);
+  },
+  send: async reviewedPrompt => {
+    // Your approved model SDK invocation, using only reviewedPrompt.
+    return await yourModelCall(reviewedPrompt);
+  }
+});
+const response = await guard.submit(userInput);
 ```
 
-All processing is in memory. Repeated identical values within a scan receive the same placeholder. Offsets use UTF-16 indices. Mask mode uses a generic placeholder. No reversible mapping is returned. Errors throw rather than returning the original input. The workbench does not send any requests to AI services.
+The adapter scans in an isolated Node worker, validates residual detections, requires explicit boolean approval and awaits an audit callback before sending. Scan, review and audit errors prevent egress. The provider callback receives only the reviewed redacted text. Provider responses are not scanned. Configure deadlines and access control on review/audit/provider callbacks in your application. Do not bypass this adapter or log original text. The lower-level synchronous engine is for trusted callers and tests.
 
-## Coverage
+## Detection coverage
 
-- Personal: emails, South African and international phone patterns, labelled names, addresses, birth dates, IPv4 addresses.
-- South African ID candidates: date, citizenship digit and Luhn validation.
-- Financial: Luhn-valid payment cards, labelled bank accounts, IBAN-like strings, tax identifiers, CVV and card PIN.
-- Insurance: labelled policy, claim and customer numbers, passport numbers.
-- Credentials: common API key prefixes, bearer tokens, JWTs, labelled secrets, connection passwords and PEM private keys.
+Personal: email, South African/international phones, labelled names, addresses and birth dates, IPv4 and MAC addresses. Financial: checksum-valid cards, labelled cards even when invalid, bank accounts, IBAN-like strings, tax identifiers, CVV/PIN. Identity: South African ID checksum/date/citizenship validation and labelled identity numbers. Insurance: policy, claim, customer, member and passport identifiers. Credentials: common API key prefixes, JWTs, basic/bearer tokens, labelled secrets, connection credentials, URL secrets and private keys. Includes selected Afrikaans labels.
 
-## Security and limitations
+Compatibility characters, common dash variants and format characters are normalised for matching, with findings projected to original UTF-16 positions. Overlaps are merged and consistent placeholders scoped to one scan. No reverse map is returned. Unknown options are rejected. Inputs are capped at 200,000 UTF-16 units, matches at 10,000 and worker scans at 3 seconds by default. Node allows at most four active workers per process. Browser export controls require review and reset on edits. No outbound requests are required.
 
-The browser policy blocks outbound connections from the app. The code has no analytics, storage, external dependencies or AI calls. The local server binds to loopback and only serves an explicit list of public assets. Never use real data in screenshots or public issue reports. The clipboard and operating system may retain copied output.
+## Evaluation and tests
 
-Pattern matching is incomplete: unlabelled people and addresses, Unicode obfuscation, unknown secret formats, context-dependent identifiers, images and binary files are not reliably handled. False positives and false negatives are possible. Tokenisation is not proof of anonymisation. The residual check is heuristic, not a safety guarantee. Category disabling weakens protection. Maximum scan size is 200,000 UTF-16 units and 10,000 candidate matches. Split larger inputs carefully, as secrets can cross chunk boundaries.
+`npm test` runs engine regressions, worker/guard integration, CLI and HTTP security tests. `npm run evaluate` reports measured precision and recall on a tiny hand-authored synthetic corpus, including deliberate unsupported cases. These figures are not production accuracy estimates. CI is configured for Node 22 and 24. No external model or real customer data is used.
 
-POPIA and other privacy regulations require organisational controls beyond redaction. Production integration should add human approval, access control, local named-entity recognition, calibrated evaluation on synthetic or authorised data, and a deny-by-default egress gateway. No compliance claim is made.
+## Deployment and assurance
 
-## Architecture
-
-Browser or CLI → rule matching → overlap merging → per-scan tokenisation → redacted output + metadata → review → optional model integration.
-
-`engine.mjs` is the shared pure redaction module. `app.mjs` renders results using text nodes, and `tests/redaction.test.mjs` contains regression fixtures. No provider SDK is necessary.
+Read [SECURITY.md](SECURITY.md) for the threat model, limitations and production release gates. Detection is heuristic and does not establish anonymity or POPIA compliance. This tool is not a network DLP gateway by itself; enforce the adapter at the application boundary and deny alternative egress. Independent testing and representative evaluation are required before handling live insurance data.

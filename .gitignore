@@ -3,3 +3,9 @@ node_modules/
 *.log
 redacted.txt
 input.txt
+
+coverage/
+playwright-report/
+test-results/
+*.pem
+*.key

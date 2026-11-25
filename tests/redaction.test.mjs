@@ -7,12 +7,12 @@ const samples=[
     2
   ],
   [
-    "Card: 4111 1111 1111 1111",
+    "Payment: 4111 1111 1111 1111",
     "PAYMENT_CARD",
     1
   ],
   [
-    "Card: 4111 1111 1111 1112",
+    "Payment: 4111 1111 1111 1112",
     null,
     0
   ],
@@ -98,3 +98,21 @@ const validIds=Array.from({length:10},(_,i)=>idPrefix+i).filter(id=>redact(id).f
 assert.equal(validIds.length,1);
 assert.equal(redact(validIds[0]).text,'[SA_ID_1]');
 assert.ok(!redact('9913325009080').findings.some(f=>f.type==='SA_ID'));
+
+
+assert.equal(redact("Email: ｄｅｍｏ＠ｅｘａｍｐｌｅ．ｔｅｓｔ").text,"Email: [EMAIL_1]");
+assert.equal(redact("Email: de\u200bmo@example.test").text,"Email: [EMAIL_1]");
+assert.equal(redact('password: "a\\"secret-tail"').text,'password: "[CREDENTIAL_1]"');
+assert.equal(redact('password: "unclosed secret').text,'password: "[CREDENTIAL_1]');
+assert.equal(redact("Card: 4111 1111 1111 1112").text,"Card: [LABELLED_CARD_1]");
+assert.equal(redact("id_number: 9913325009080").text,"id_number: [LABELLED_ID_1]");
+assert.equal(redact("postgres://fakeuser:fakepass@localhost/db").text,"postgres://[CONNECTION_SECRET_1]@localhost/db");
+assert.ok(!redact("rekeningnommer: 1234567890").text.includes("1234567890"));
+assert.ok(!redact("Authorization: Basic ZGVtbzpkZW1v").text.includes("ZGVtbzpkZW1v"));
+assert.ok(!redact("https://example.test/?token=fake-secret-123").text.includes("fake-secret-123"));
+assert.throws(()=>redact("text",{disabled:["TYPO"]}),TypeError);
+assert.throws(()=>redact("text",{wrong:true}),TypeError);
+assert.throws(()=>prepareForModel("text\u200btext"),/control characters/);
+assert.equal(redact("A".repeat(200000)).findings.length,0);
+assert.ok(redact("x".repeat(200001-1)).text.length===200000);
+assert.equal(redact("😀 demo@example.test").findings[0].start,3);
