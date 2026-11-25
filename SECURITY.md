@@ -12,7 +12,7 @@ Pattern detection misses some unlabelled names, addresses, novel encodings, spli
 
 ## Production release gates
 
-- Independent security review and browser end-to-end tests.
+- Independent security review and successful browser end-to-end tests (the repository includes a Chromium security smoke test; expand it before deployment).
 - Representative, authorised labelled corpus, measured category-level precision/recall and documented acceptance thresholds.
 - Review/authentication, enterprise access controls and network-level deny-by-default egress at the integration boundary.
 - TLS, deployment supply-chain integrity, monitoring of metadata-only failures and documented incident response.

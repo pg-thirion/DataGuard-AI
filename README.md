@@ -54,7 +54,7 @@ Compatibility characters, common dash variants and format characters are normali
 
 ## Evaluation and tests
 
-`npm test` runs engine regressions, worker/guard integration, CLI and HTTP security tests. `npm run evaluate` reports measured precision and recall on a tiny hand-authored synthetic corpus, including deliberate unsupported cases. These figures are not production accuracy estimates. CI is configured for Node 22 and 24. No external model or real customer data is used.
+`npm test` runs engine regressions, worker/guard integration, CLI and HTTP security tests. `npm run evaluate` reports measured precision and recall on a tiny hand-authored synthetic corpus, including deliberate unsupported cases. These figures are not production accuracy estimates. CI is configured for Node 22 and 24, including a Chromium browser smoke test on Node 22. Run `npm run test:browser` locally with Chromium or set `CHROME_BIN`. No external model or real customer data is used.
 
 ## Deployment and assurance
 

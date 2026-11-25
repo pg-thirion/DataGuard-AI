@@ -10,6 +10,7 @@
     "start": "node server.mjs",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "check": "node --check engine.mjs && node --check app.mjs && node --check guard.mjs && node --check server.mjs",
-    "evaluate": "node evaluation/evaluate.mjs"
+    "evaluate": "node evaluation/evaluate.mjs",
+    "test:browser": "node browser/smoke.mjs"
   }
 }

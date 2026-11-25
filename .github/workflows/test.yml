@@ -17,3 +17,6 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run evaluate
+      - name: Chromium security smoke test
+        if: matrix.node == '22'
+        run: npm run test:browser
