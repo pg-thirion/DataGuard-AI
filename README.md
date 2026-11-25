@@ -1,5 +1,9 @@
 # DataGuard AI
 
+**Live demo:** [https://dataguard-ai-tau.vercel.app](https://dataguard-ai-tau.vercel.app)
+
+The hosted workbench runs entirely in the browser. The Node.js adapter and CLI remain local tools.
+
 Local-first sensitive-data redaction and reviewed model egress for AI-assisted insurance and support workflows. Version 0.2 introduces isolated scanning, bounded resources, normalisation-aware detection and a fail-closed application adapter. This is a hardened reference implementation, not a certified production DLP product.
 
 ## Quick start
